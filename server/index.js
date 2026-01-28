@@ -1,11 +1,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer"; // 1. Import Nodemailer
 import connectDB from "./config/db.js";
 
 import projectRoutes from "./routes/projectRoutes.js";
 import skillRoutes from "./routes/skillRoutes.js";
-import contactRoutes from "./routes/contactRoutes.js";
+// Removed contactRoutes import to handle functionality directly here
 
 dotenv.config();
 
@@ -16,7 +17,7 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"]
+    allowedHeaders: ["Content-Type"],
   })
 );
 app.use(express.json());
@@ -31,7 +32,39 @@ app.get("/", (req, res) => {
 // routes
 app.use("/api/projects", projectRoutes);
 app.use("/api/skills", skillRoutes);
-app.use("/api/contact", contactRoutes);
+
+// 2. Contact Route Logic (Added directly here)
+app.post("/api/contact", async (req, res) => {
+  const { name, email, message } = req.body;
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // Ensure these are in your .env file
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER, // Sends the email to yourself
+      replyTo: email,
+      subject: `Portfolio Contact from: ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ success: true, message: "Email sent!" });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    res.status(500).json({ success: false, error: "Failed to send email" });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
