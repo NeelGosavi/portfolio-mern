@@ -23,28 +23,24 @@ app.use(express.urlencoded({ extended: true }));
 
 connectDB();
 
-// 1. Define transporter OUTSIDE the route for better performance and stability
+// 1. Simplified Transporter using the 'gmail' service
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // Must be false for port 587
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  tls: {
-    rejectUnauthorized: false // Helps bypass cloud network restrictions
-  }
 });
 
-// 2. Verify connection on startup
-transporter.verify((error) => {
-  if (error) {
-    console.error("❌ Email server connection error:", error);
-  } else {
-    console.log("✅ Email server is ready to take our messages");
-  }
-});
+// 2. Log initialization attempt
+console.log("⏳ Initializing email server check...");
+
+transporter.verify()
+  .then(() => console.log("✅ Email server is ready to take our messages"))
+  .catch((err) => {
+    console.error("❌ Email server connection error:");
+    console.error(err.message);
+  });
 
 app.get("/", (req, res) => {
   res.send("Portfolio API Running...");
@@ -53,7 +49,6 @@ app.get("/", (req, res) => {
 app.use("/api/projects", projectRoutes);
 app.use("/api/skills", skillRoutes);
 
-// 3. Updated Contact Route
 app.post("/api/contact", async (req, res) => {
   const { name, email, message } = req.body;
 
