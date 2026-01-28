@@ -12,6 +12,9 @@ function App() {
   const [skills, setSkills] = useState([]);
   const [contactStatus, setContactStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  // 1. ADDED: State for button loading animation
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -25,9 +28,7 @@ function App() {
           const fetchedProjects = Array.isArray(projRes.data) ? projRes.data : [];
           const fetchedSkills = Array.isArray(skillsRes.data) ? skillsRes.data : [];
 
-          // --- LOGIC TO MERGE PROJECT SKILLS INTO SKILLS LIST ---
-          
-          // 1. Get all unique technologies listed in projects
+          // Merge Logic
           const projectTechSet = new Set();
           fetchedProjects.forEach((p) => {
             if (Array.isArray(p.techStack)) {
@@ -35,22 +36,19 @@ function App() {
             }
           });
 
-          // 2. Identify which ones are missing from the skills database
-          // (We use lowercase comparison to avoid duplicates like "react" vs "React")
           const existingSkillNames = new Set(fetchedSkills.map((s) => s.name.toLowerCase()));
           const missingSkills = [];
 
           projectTechSet.forEach((tech) => {
             if (!existingSkillNames.has(tech.toLowerCase())) {
               missingSkills.push({
-                _id: `auto-${tech}`, // Generate a temporary unique ID
+                _id: `auto-${tech}`,
                 name: tech,
-                category: "Tech Stack", // Default category for inferred skills
+                category: "Tech Stack",
               });
             }
           });
 
-          // 3. Update state with both lists combined
           setProjects(fetchedProjects);
           setSkills([...fetchedSkills, ...missingSkills]);
           setLoading(false);
@@ -75,6 +73,9 @@ function App() {
   const handleContactSubmit = async (e) => {
     e.preventDefault();
     setContactStatus("");
+    
+    // 2. ADDED: Start loading
+    setIsSending(true);
 
     const form = e.target;
     const payload = {
@@ -87,10 +88,14 @@ function App() {
       await api.post("/contact", payload);
       setContactStatus("Message sent successfully ✅");
       form.reset();
-      setTimeout(() => setContactStatus(""), 3000);
+      setTimeout(() => setContactStatus(""), 5000);
     } catch (err) {
+      console.error(err); // Log error to see if it's 404 or 500
       setContactStatus("Failed to send message ❌");
-      setTimeout(() => setContactStatus(""), 3000);
+      setTimeout(() => setContactStatus(""), 5000);
+    } finally {
+      // 3. ADDED: Stop loading regardless of success or failure
+      setIsSending(false);
     }
   };
 
@@ -106,7 +111,6 @@ function App() {
       >
         <div className="max-w-4xl mx-auto space-y-8 z-10">
           
-          {/* Name & Title */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -126,7 +130,6 @@ function App() {
             </h2>
           </motion.div>
 
-          {/* Description */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -137,7 +140,6 @@ function App() {
             secure backends, and real-world problem solving.
           </motion.p>
 
-          {/* Action Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -168,7 +170,6 @@ function App() {
             </a>
           </motion.div>
 
-          {/* Social Dock */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -392,11 +393,23 @@ function App() {
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white/10 transition-all resize-y"
               />
+              
+              {/* 4. UPDATED: Button now shows Loading state */}
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 transform hover:-translate-y-1"
+                disabled={isSending}
+                className={`w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 transform hover:-translate-y-1 ${
+                  isSending ? "opacity-70 cursor-wait pointer-events-none" : ""
+                }`}
               >
-                Send Message
+                {isSending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="h-4 w-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                    Sending...
+                  </span>
+                ) : (
+                  "Send Message"
+                )}
               </button>
             </form>
 
