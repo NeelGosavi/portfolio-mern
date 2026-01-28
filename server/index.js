@@ -1,18 +1,16 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import nodemailer from "nodemailer"; // 1. Import Nodemailer
+import nodemailer from "nodemailer";
 import connectDB from "./config/db.js";
 
 import projectRoutes from "./routes/projectRoutes.js";
 import skillRoutes from "./routes/skillRoutes.js";
-// Removed contactRoutes import to handle functionality directly here
 
 dotenv.config();
 
 const app = express();
 
-// 🔴 these must be BEFORE routes
 app.use(
   cors({
     origin: "*",
@@ -25,15 +23,37 @@ app.use(express.urlencoded({ extended: true }));
 
 connectDB();
 
+// 1. Define transporter OUTSIDE the route for better performance and stability
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // Must be false for port 587
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false // Helps bypass cloud network restrictions
+  }
+});
+
+// 2. Verify connection on startup
+transporter.verify((error) => {
+  if (error) {
+    console.error("❌ Email server connection error:", error);
+  } else {
+    console.log("✅ Email server is ready to take our messages");
+  }
+});
+
 app.get("/", (req, res) => {
   res.send("Portfolio API Running...");
 });
 
-// routes
 app.use("/api/projects", projectRoutes);
 app.use("/api/skills", skillRoutes);
 
-// 2. Contact Route Logic (Added directly here)
+// 3. Updated Contact Route
 app.post("/api/contact", async (req, res) => {
   const { name, email, message } = req.body;
 
@@ -41,35 +61,15 @@ app.post("/api/contact", async (req, res) => {
     return res.status(400).json({ error: "All fields are required" });
   }
 
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: process.env.EMAIL_USER,
+    replyTo: email,
+    subject: `Portfolio Contact from: ${name}`,
+    text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+  };
+
   try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // Use SSL/TLS
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      connectionTimeout: 10000, 
-    });
-
-    // ADD THIS: Verify the connection configuration
-    transporter.verify(function (error, success) {
-      if (error) {
-        console.error("❌ Email server connection error:", error);
-      } else {
-        console.log("✅ Email server is ready to take our messages");
-      }
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER, // Sends the email to yourself
-      replyTo: email,
-      subject: `Portfolio Contact from: ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-    };
-
     await transporter.sendMail(mailOptions);
     res.status(200).json({ success: true, message: "Email sent!" });
   } catch (error) {
