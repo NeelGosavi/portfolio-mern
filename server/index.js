@@ -45,13 +45,21 @@ app.post("/api/contact", async (req, res) => {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
-      secure: true, // Use SSL
+      secure: true, // Use SSL/TLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      // Add this to prevent timeouts on slow networks
-      connectionTimeout: 10000, // 10 seconds
+      connectionTimeout: 10000, 
+    });
+
+    // ADD THIS: Verify the connection configuration
+    transporter.verify(function (error, success) {
+      if (error) {
+        console.error("❌ Email server connection error:", error);
+      } else {
+        console.log("✅ Email server is ready to take our messages");
+      }
     });
 
     const mailOptions = {
